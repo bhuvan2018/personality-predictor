@@ -1,6 +1,7 @@
 import flet as ft
 from app.model import predict_personality
 
+# Enhanced color palette with hex codes
 colors = ["Red", "Blue", "Yellow", "Black", "Green", "Purple", "Orange", "Grey"]
 themes = ["Abstract", "Nature", "People", "Tech"]
 
@@ -23,107 +24,391 @@ theme_images = {
 }
 
 def main_view(page: ft.Page):
+    # Modern app setup
     page.title = "Visual Personality Predictor"
-    page.window_width = 500
-    page.window_height = 700
+    page.padding = 25
+    page.spacing = 20
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.DARK
-
+    page.bgcolor = "#121212"
+    
+    # Responsive window sizing
+    page.window_width = 500
+    page.window_height = 750
+    page.window_min_width = 350
+    page.window_min_height = 600
+    # Removed window_center() as it's not available in Flet
+    
+    # State variables
     selected_color = ""
     selected_theme = ""
+    prediction_complete = False
 
-    prediction_text = ft.Text("", size=16, color="green", weight=ft.FontWeight.BOLD)
-    selections_text = ft.Text("Current Selections:\n", size=14, weight=ft.FontWeight.W_600)
+    # UI elements with enhanced styling
+    title = ft.Text(
+        "Visual Personality Predictor",
+        size=28,
+        color="#f5f5f5",
+        weight=ft.FontWeight.BOLD,
+        text_align=ft.TextAlign.CENTER
+    )
+    
+    subtitle = ft.Text(
+        "Choose your preferences to discover your personality type",
+        size=16,
+        color="#aaaaaa",
+        italic=True,
+        text_align=ft.TextAlign.CENTER
+    )
+    
+    selections_text = ft.Text(
+        "Make your selections below",
+        size=16,
+        weight=ft.FontWeight.W_600,
+        color="#dddddd",
+    )
+    
+    prediction_text = ft.Text(
+        "",
+        size=18,
+        color="#00e676",
+        weight=ft.FontWeight.BOLD,
+        text_align=ft.TextAlign.CENTER,
+        visible=False
+    )
+    
+    color_section_title = ft.Text(
+        "Select Your Favorite Color",
+        size=20,
+        weight=ft.FontWeight.W_600,
+        color="#f5f5f5"
+    )
+    
+    theme_section_title = ft.Text(
+        "Select Your Favorite Theme",
+        size=20,
+        weight=ft.FontWeight.W_600,
+        color="#f5f5f5"
+    )
 
-    dialog = ft.AlertDialog(modal=True)
+    # Create a stylish dialog
+    dialog = ft.AlertDialog(
+        modal=True,
+    )
     page.dialog = dialog
-
+    
     # Store controls for highlighting
     color_buttons = []
     theme_buttons = []
 
     def update_selection_display():
-        selections_text.value = f"Current Selections:\n{selected_color}\n{selected_theme}"
+        color_status = f"• Color: {selected_color}" if selected_color else "• Color: Not selected"
+        theme_status = f"• Theme: {selected_theme}" if selected_theme else "• Theme: Not selected"
+        selections_text.value = f"{color_status}\n{theme_status}"
+        
+        # Show prediction text if both selections made
+        prediction_text.visible = selected_color and selected_theme and prediction_complete
         page.update()
 
-    def clear_highlights():
-        for btn in color_buttons:
-            btn.style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=20), side=None)
-        for img in theme_buttons:
-            img.content.border = None
+    def clear_highlights(control_type=None):
+        if control_type != "color":
+            for btn in color_buttons:
+                btn.style = ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=20),
+                    side=ft.BorderSide(1, "#555555")
+                )
+                
+        if control_type != "theme":
+            for img in theme_buttons:
+                img.content.border = ft.border.all(1, "#555555")
+                img.content.border_radius = ft.border_radius.all(15)
+                
+        page.update()
 
     def handle_color_click(e):
-        nonlocal selected_color
-        selected_color = e.control.data
-        clear_highlights()
-        e.control.style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=20),
-                                         side=ft.BorderSide(2, ft.colors.WHITE))
+        nonlocal selected_color, prediction_complete
+        if selected_color == e.control.data:
+            # Deselect if clicking the same color
+            selected_color = ""
+            clear_highlights("color")
+        else:
+            selected_color = e.control.data
+            clear_highlights("color")
+            e.control.style = ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=20),
+                side=ft.BorderSide(3, ft.colors.WHITE)
+            )
+        
+        prediction_complete = False
         update_selection_display()
 
     def handle_theme_click(e):
-        nonlocal selected_theme
-        selected_theme = e.control.data
-        clear_highlights()
-        e.control.content.border = ft.border.all(3, ft.colors.CYAN)
+        nonlocal selected_theme, prediction_complete
+        if selected_theme == e.control.data:
+            # Deselect if clicking the same theme
+            selected_theme = ""
+            clear_highlights("theme")
+        else:
+            selected_theme = e.control.data
+            clear_highlights("theme")
+            e.control.content.border = ft.border.all(3, "#00e5ff")
+            e.control.content.border_radius = ft.border_radius.all(15)
+            
+        prediction_complete = False
         update_selection_display()
-
+        
+        # Automatically predict when both selections are made
         if selected_color and selected_theme:
-            prediction = predict_personality(selected_color, selected_theme)
-            prediction_text.value = f"Prediction: {prediction}"
-            dialog.title = ft.Text("Personality Prediction", weight=ft.FontWeight.BOLD, size=18)
-            dialog.content = ft.Text(f"Your personality is: {prediction}", size=16)
-            dialog.actions = [ft.TextButton("OK", on_click=lambda e: setattr(dialog, 'open', False))]
-            dialog.open = True
-            page.update()
+            show_prediction()
 
-    def reset_all(e):
-        nonlocal selected_color, selected_theme
-        selected_color = ""
-        selected_theme = ""
-        prediction_text.value = ""
-        selections_text.value = "Current Selections:\n"
-        clear_highlights()
+    def show_prediction():
+        nonlocal prediction_complete
+        prediction = predict_personality(selected_color, selected_theme)
+        prediction_text.value = f"Your personality: {prediction}"
+        prediction_complete = True
+        prediction_text.visible = True
+        
+        # Create and show an animated dialog
+        dialog.title = ft.Text("Personality Analysis", weight=ft.FontWeight.BOLD, size=20)
+        
+        dialog.content = ft.Column([
+            ft.Container(
+                content=ft.Icon(ft.icons.PSYCHOLOGY_ALT, size=50, color="#00e5ff"),
+                alignment=ft.alignment.center,
+                margin=ft.margin.only(top=10, bottom=20)
+            ),
+            ft.Text(
+                f"Based on your preferences:",
+                size=16,
+                color="#dddddd"
+            ),
+            ft.Container(
+                content=ft.Text(
+                    f"Color: {selected_color}",
+                    size=16,
+                    color=color_map[selected_color]
+                ),
+                margin=ft.margin.only(top=5)
+            ),
+            ft.Container(
+                content=ft.Text(f"Theme: {selected_theme}", size=16),
+                margin=ft.margin.only(bottom=10)
+            ),
+            ft.Container(
+                content=ft.Text(
+                    f"Your personality type is:",
+                    size=16,
+                    color="#dddddd",
+                    weight=ft.FontWeight.W_500
+                ),
+                margin=ft.margin.only(top=10, bottom=5)
+            ),
+            ft.Container(
+                content=ft.Text(
+                    prediction,
+                    size=22,
+                    color="#00e676",
+                    weight=ft.FontWeight.BOLD
+                ),
+                margin=ft.margin.only(bottom=20)
+            )
+        ], spacing=5, alignment=ft.MainAxisAlignment.CENTER)
+        
+        dialog.actions = [
+            ft.TextButton(
+                "Try New Combination",
+                on_click=lambda e: setattr(dialog, 'open', False)
+            )
+        ]
+        
+        dialog.open = True
         page.update()
 
-    # Buttons
-    color_buttons = [
-        ft.ElevatedButton(
-            text=color,
-            bgcolor=color_map[color],
-            color="black" if color == "Yellow" else "white",
+    def reset_all(e):
+        nonlocal selected_color, selected_theme, prediction_complete
+        selected_color = ""
+        selected_theme = ""
+        prediction_complete = False
+        prediction_text.visible = False
+        clear_highlights()
+        update_selection_display()
+
+    # Create color buttons with enhanced styling
+    color_grid = ft.GridView(
+        runs_count=2,
+        max_extent=150,
+        spacing=10,
+        run_spacing=10,
+        expand=True
+    )
+    
+    color_buttons = []
+    for color in colors:
+        btn = ft.ElevatedButton(
+            content=ft.Row(
+                [
+                    ft.Icon(ft.icons.CIRCLE, color=color_map[color], size=20),
+                    ft.Text(
+                        color,
+                        size=16,
+                        weight=ft.FontWeight.W_500,
+                        color="black" if color == "Yellow" else "white"
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=8
+            ),
+            bgcolor=color_map[color] + "99",  # Semi-transparent
             data=color,
             on_click=handle_color_click,
-            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=20))
-        ) for color in colors
-    ]
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=20),
+                side=ft.BorderSide(1, "#555555"),
+            ),
+            height=60,
+            width=140
+        )
+        color_buttons.append(btn)
+        color_grid.controls.append(btn)
 
-    # Image options
-    theme_buttons = [
-        ft.GestureDetector(
+    # Create theme cards with enhanced styling
+    theme_grid = ft.GridView(
+        runs_count=2,
+        max_extent=160,
+        spacing=15,
+        run_spacing=15,
+        expand=True
+    )
+    
+    theme_buttons = []
+    for theme in themes:
+        theme_card = ft.GestureDetector(
             on_tap=handle_theme_click,
             data=theme,
-            content=ft.Image(
-                src=theme_images[theme],
-                width=100,
-                height=100,
-                fit=ft.ImageFit.COVER,
-                border_radius=10
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Container(
+                            content=ft.Image(
+                                src=theme_images[theme],
+                                width=120,
+                                height=120,
+                                fit=ft.ImageFit.COVER,
+                                border_radius=ft.border_radius.all(10)
+                            ),
+                            padding=5
+                        ),
+                        ft.Text(
+                            theme,
+                            size=16,
+                            weight=ft.FontWeight.W_500,
+                            color="#f5f5f5",
+                            text_align=ft.TextAlign.CENTER
+                        )
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=8
+                ),
+                border=ft.border.all(1, "#555555"),
+                border_radius=15,
+                padding=10,
+                alignment=ft.alignment.center
             )
-        ) for theme in themes
-    ]
+        )
+        theme_buttons.append(theme_card)
+        theme_grid.controls.append(theme_card)
 
-    # Layout
-    page.add(
-        ft.Text("Select Your Favorite Color", size=18, weight=ft.FontWeight.W_600),
-        ft.ResponsiveRow(controls=color_buttons, alignment=ft.MainAxisAlignment.CENTER),
-        ft.Divider(height=20),
-        ft.Text("Select Your Favorite Theme", size=18, weight=ft.FontWeight.W_600),
-        ft.Row(theme_buttons, spacing=10, alignment=ft.MainAxisAlignment.CENTER),
-        ft.Divider(height=20),
-        selections_text,
-        prediction_text,
-        ft.ElevatedButton("Try Again", icon=ft.icons.REFRESH, on_click=reset_all, bgcolor="grey")
+    # Reset button with proper styling
+    reset_button = ft.ElevatedButton(
+        "Reset Selections",
+        icon=ft.icons.REFRESH_ROUNDED,
+        on_click=reset_all,
+        style=ft.ButtonStyle(
+            shape=ft.RoundedRectangleBorder(radius=10)
+        ),
+        bgcolor="#555555",
+        color="#ffffff"
     )
+
+    # Create responsive layout
+    page.add(
+        # App header
+        ft.Container(
+            content=ft.Column(
+                [title, subtitle],
+                spacing=5,
+                alignment=ft.MainAxisAlignment.CENTER
+            ),
+            margin=ft.margin.only(bottom=10),
+            padding=10
+        ),
+        
+        # Color selection section
+        ft.Container(
+            content=ft.Column(
+                [
+                    color_section_title,
+                    ft.Container(
+                        content=color_grid,
+                        margin=ft.margin.only(top=10, bottom=15),
+                        padding=10
+                    )
+                ],
+                spacing=5
+            ),
+            border_radius=10,
+            bgcolor="#1e1e1e",
+            padding=15,
+            margin=ft.margin.only(bottom=20)
+        ),
+        
+        # Theme selection section
+        ft.Container(
+            content=ft.Column(
+                [
+                    theme_section_title,
+                    ft.Container(
+                        content=theme_grid,
+                        margin=ft.margin.only(top=10, bottom=15),
+                        padding=10
+                    )
+                ],
+                spacing=5
+            ),
+            border_radius=10,
+            bgcolor="#1e1e1e",
+            padding=15,
+            margin=ft.margin.only(bottom=20)
+        ),
+        
+        # Selections and prediction area
+        ft.Container(
+            content=ft.Column(
+                [
+                    selections_text,
+                    prediction_text
+                ],
+                spacing=15,
+                alignment=ft.MainAxisAlignment.CENTER
+            ),
+            border_radius=10,
+            bgcolor="#1e1e1e",
+            padding=20,
+            margin=ft.margin.only(bottom=20)
+        ),
+        
+        # Bottom action buttons
+        ft.Container(
+            content=ft.Row(
+                [reset_button],
+                alignment=ft.MainAxisAlignment.CENTER
+            ),
+            margin=ft.margin.only(bottom=20)
+        )
+    )
+    
+    # Initial setup
+    update_selection_display()
 
 def main():
     ft.app(target=main_view)
