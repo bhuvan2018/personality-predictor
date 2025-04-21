@@ -1,4 +1,5 @@
 import flet as ft
+import os
 from app.model import predict_personality
 
 # Enhanced color palette with hex codes
@@ -16,11 +17,28 @@ color_map = {
     "Grey": "#999999"
 }
 
+# Fix image paths for mobile compatibility
+def get_asset_path(image_name):
+    # This creates a path that works in both development and when packaged for mobile
+    base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "assets")
+    
+    # For direct use in mobile app
+    if os.path.exists(os.path.join("app", "assets", image_name)):
+        return os.path.join("app", "assets", image_name)
+    
+    # For development environment
+    elif os.path.exists(os.path.join(base_path, image_name)):
+        return os.path.join(base_path, image_name)
+    
+    # Fallback
+    else:
+        return os.path.join("assets", image_name)
+
 theme_images = {
-    "Abstract": "app/assets/abstract.png",
-    "Nature": "app/assets/nature.png",
-    "People": "app/assets/people.png",
-    "Tech": "app/assets/tech.png"
+    "Abstract": get_asset_path("abstract.png"),
+    "Nature": get_asset_path("nature.png"),
+    "People": get_asset_path("people.png"),
+    "Tech": get_asset_path("tech.png")
 }
 
 def main_view(page: ft.Page):
@@ -37,7 +55,6 @@ def main_view(page: ft.Page):
     page.window_height = 750
     page.window_min_width = 350
     page.window_min_height = 600
-    # Removed window_center() as it's not available in Flet
     
     # State variables
     selected_color = ""
@@ -271,7 +288,7 @@ def main_view(page: ft.Page):
         color_buttons.append(btn)
         color_grid.controls.append(btn)
 
-    # Create theme cards with enhanced styling
+    # Create theme cards with enhanced styling and fallback for missing images
     theme_grid = ft.GridView(
         runs_count=2,
         max_extent=160,
@@ -282,33 +299,30 @@ def main_view(page: ft.Page):
     
     theme_buttons = []
     for theme in themes:
+        # Create a failsafe theme representation
+        theme_content = ft.Column(
+            [
+                ft.Container(
+                    content=create_theme_visual(theme),
+                    padding=5
+                ),
+                ft.Text(
+                    theme,
+                    size=16,
+                    weight=ft.FontWeight.W_500,
+                    color="#f5f5f5",
+                    text_align=ft.TextAlign.CENTER
+                )
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8
+        )
+        
         theme_card = ft.GestureDetector(
             on_tap=handle_theme_click,
             data=theme,
             content=ft.Container(
-                content=ft.Column(
-                    [
-                        ft.Container(
-                            content=ft.Image(
-                                src=theme_images[theme],
-                                width=120,
-                                height=120,
-                                fit=ft.ImageFit.COVER,
-                                border_radius=ft.border_radius.all(10)
-                            ),
-                            padding=5
-                        ),
-                        ft.Text(
-                            theme,
-                            size=16,
-                            weight=ft.FontWeight.W_500,
-                            color="#f5f5f5",
-                            text_align=ft.TextAlign.CENTER
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    spacing=8
-                ),
+                content=theme_content,
                 border=ft.border.all(1, "#555555"),
                 border_radius=15,
                 padding=10,
@@ -409,6 +423,66 @@ def main_view(page: ft.Page):
     
     # Initial setup
     update_selection_display()
+
+def create_theme_visual(theme):
+    """Create a visual representation for a theme with a fallback if image doesn't load"""
+    try:
+        # Try to use the image
+        return ft.Image(
+            src=theme_images[theme],
+            width=120,
+            height=120,
+            fit=ft.ImageFit.COVER,
+            border_radius=ft.border_radius.all(10),
+            error_content=create_theme_placeholder(theme)
+        )
+    except Exception:
+        # Fallback to placeholder
+        return create_theme_placeholder(theme)
+
+def create_theme_placeholder(theme):
+    """Create a colored placeholder for theme with text"""
+    theme_colors = {
+        "Abstract": "#7e57c2",  # Purple
+        "Nature": "#4caf50",    # Green
+        "People": "#ff9800",    # Orange
+        "Tech": "#2196f3"       # Blue
+    }
+    
+    return ft.Container(
+        content=ft.Column(
+            [
+                ft.Icon(
+                    get_theme_icon(theme),
+                    size=50,
+                    color="white"
+                ),
+                ft.Text(
+                    theme,
+                    color="white",
+                    weight=ft.FontWeight.BOLD,
+                    size=16
+                )
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=10
+        ),
+        width=120,
+        height=120,
+        bgcolor=theme_colors.get(theme, "#757575"),
+        border_radius=10,
+        alignment=ft.alignment.center
+    )
+
+def get_theme_icon(theme):
+    """Get an appropriate icon for each theme"""
+    theme_icons = {
+        "Abstract": ft.icons.PALETTE,
+        "Nature": ft.icons.FOREST,
+        "People": ft.icons.PEOPLE,
+        "Tech": ft.icons.COMPUTER
+    }
+    return theme_icons.get(theme, ft.icons.IMAGE)
 
 def main():
     ft.app(target=main_view)
